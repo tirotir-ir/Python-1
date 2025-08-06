@@ -1,0 +1,42 @@
+#pip install hijri-converter
+
+import tkinter as tk
+import datetime
+import jdatetime
+from hijri_converter import convert
+
+def get_dates():
+    # تاریخ امروز میلادی
+    today_gregorian = datetime.datetime.now()
+    gregorian_date = today_gregorian.strftime('%Y-%m-%d')
+
+    # تبدیل تاریخ میلادی به تاریخ شمسی
+    today_jalali = jdatetime.date.today()
+    jalali_date = today_jalali.strftime('%Y/%m/%d')
+
+    # تبدیل تاریخ میلادی به تاریخ قمری
+    hijri_date = convert.Gregorian.today().to_hijri()
+    hijri_date_str = f"{hijri_date.year}-{hijri_date.month:02}-{hijri_date.day:02}"
+
+    return gregorian_date, jalali_date, hijri_date_str
+
+# ایجاد پنجره اصلی
+root = tk.Tk()
+root.title("نمایش تقویم")
+
+# دریافت تاریخ‌ها
+gregorian_date, jalali_date, hijri_date = get_dates()
+
+# ایجاد و نمایش برچسب‌ها
+label_gregorian = tk.Label(root, text=f"تاریخ امروز میلادی: {gregorian_date}", font=("Arial", 14))
+label_gregorian.pack(pady=10)
+
+label_jalali = tk.Label(root, text=f"تاریخ امروز شمسی: {jalali_date}", font=("Arial", 14))
+label_jalali.pack(pady=10)
+
+label_hijri = tk.Label(root, text=f"تاریخ امروز قمری: {hijri_date}", font=("Arial", 14))
+label_hijri.pack(pady=10)
+
+# شروع حلقه اصلی برنامه
+root.mainloop()
+

@@ -1,0 +1,125 @@
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "if condition:\n",
+    "  pass"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "if condition:\n",
+    "  pass\n",
+    "elif condition:\n",
+    "  pass"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "if condition:\n",
+    "  pass\n",
+    "elif condition:\n",
+    "  pass\n",
+    "else:\n",
+    "  pass"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "if condition:\n",
+    "  pass\n",
+    "else:\n",
+    "  pass"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "print('A') if a > b else print('A')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "if ():\n",
+    "    # comment: \n",
+    "# end if"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "if ():\n",
+    "    # comment: \n",
+    "elif ():\n",
+    "    # comment: \n",
+    "# end if"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "if ():\n",
+    "    # comment: \n",
+    "elif ():\n",
+    "    # comment: \n",
+    "else:\n",
+    "    # comment: \n",
+    "# end if"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "if (input(\"Finished? y/n : \") == \"y\"):\n",
+    "    # comment: \n",
+    "# end if"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  }
+ ],
+ "metadata": {
+  "language_info": {
+   "name": "python"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 2
+}
