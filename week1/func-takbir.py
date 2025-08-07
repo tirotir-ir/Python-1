@@ -1,9 +1,9 @@
 def takbir():
     print("الله اکبر")
     print("الله اکبر")
-    print("الله اکبر")
-    print("مرگ برآمریکا")
-    print("مرگ بر اسراییل")
+    print("الله ..")
+    print("مرگ ...")
+    print("مرگ بر ...")
 
 def salavat():
     print("اللهم صل علی محمد و آل محمد")
