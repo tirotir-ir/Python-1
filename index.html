@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="fa">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>داشبورد پایتون تیروتیر — Python + Image Viewer (Auto + Fallback)</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+  <style>
+    html,body{height:100%}
+    .tree-scroll{max-height:70vh;overflow:auto}
+    .file-item:hover{background:rgba(255,255,255,0.02)}
+    .folder-label{cursor:pointer}
+    .badge{font-size:.7rem;padding:.12rem .35rem;border-radius:.35rem}
+    pre.code-block{max-height:50vh;overflow:auto}
+    /* rtl */
+    body{direction:rtl}
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen font-sans">
+  <header class="bg-gradient-to-r from-purple-700 via-indigo-700 to-sky-700 p-4 shadow">
+    <div class="container mx-auto flex items-center justify-between">
+      <h1 class="text-2xl font-bold">داشبورد دوره‌ها — اجرای پایتون و پیش‌نمایش تصویر</h1>
+      <h3>می‌توانید فایل‌ها را ببینید و دانلود کنید. فایل‌های ساده پایتون قابلیت اجرا در این صفحه را دارند.</h3>
+      <div class="text-sm opacity-90">Pyodide (در مرورگر) — فایل‌ها باید با سرور محلی سرو شوند</div>
+    </div>
+  </header>
+
+  <main class="container mx-auto p-6 grid grid-cols-12 gap-6">
+    <!-- Sidebar: tree -->
+    <aside class="col-span-3 bg-gray-800 rounded p-4 shadow">
+      <div class="mb-3 flex gap-2">
+        <input id="search" placeholder="جستجو در فایل‌ها..." class="flex-1 p-2 rounded bg-gray-700 text-white" />
+        <button id="refresh-tree" class="bg-indigo-600 px-3 py-1 rounded text-sm hover:bg-indigo-700">بروزرسانی</button>
+      </div>
+      <div id="tree-status" class="text-xs opacity-80 mb-2">اگر درخت خالی است: از پوشهٔ والد `index.html` سرور را اجرا کنید (مثلاً: <code>python -m http.server</code>).</div>
+      <div class="tree-scroll" id="tree">در حال بارگذاری درخت فایل‌ها...</div>
+    </aside>
+
+    <!-- Center: code viewer and controls -->
+    <section class="col-span-6 bg-gray-800 rounded p-4 shadow flex flex-col">
+      <div class="flex items-center justify-between mb-3">
+        <div>
+          <div id="file-path" class="text-sm opacity-80">هیچ فایلی انتخاب نشده</div>
+          <div id="file-type-badge" class="mt-1"></div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="open-raw" class="bg-gray-700 px-3 py-1 rounded text-sm hover:bg-gray-600 hidden">باز کردن در تب جدید</button>
+          <button id="run-python" class="bg-green-600 px-4 py-2 rounded text-sm hover:bg-green-700 hidden">اجرا ▶</button>
+          <button id="download-file" class="bg-indigo-600 px-3 py-1 rounded text-sm hover:bg-indigo-700 hidden">دانلود</button>
+        </div>
+      </div>
+
+      <div class="flex-1 overflow-auto">
+        <div id="code-view" class="rounded bg-gray-900 p-3 text-sm w-full h-full">
+          <pre id="code-pre" class="code-block text-xs"><code id="code-content" class="hljs"></code></pre>
+        </div>
+      </div>
+
+      <div id="python-inputs" class="mt-3 hidden">
+        <label class="text-sm mb-1 block">ورودی‌ها (هر خط = یک فراخوانی input())</label>
+        <textarea id="inputs" class="w-full bg-gray-700 p-2 rounded text-sm" rows="3" placeholder="مثال:
+Alice
+3"></textarea>
+      </div>
+
+      <div id="output-console" class="mt-3 bg-black bg-opacity-60 p-3 rounded text-sm h-40 overflow-auto hidden">
+        <div class="font-medium mb-2">خروجی</div>
+        <pre id="console-text" class="whitespace-pre-wrap"></pre>
+      </div>
+    </section>
+
+    <!-- Right: preview (image/video/info) -->
+    <aside class="col-span-3 bg-gray-800 rounded p-4 shadow">
+      <div id="preview-area" class="text-center text-sm opacity-90">فایل تصویر یا مدیا را انتخاب کنید</div>
+      <div id="preview-content" class="mt-3"></div>
+    </aside>
+  </main>
+
+  <footer class="text-center p-4 text-xs opacity-80">راهنما: پوشه‌ها و فایل‌ها باید کنار این index.html قرار داشته باشند و با یک سرور ساده (مثل <code>python -m http.server</code>) اجرا شوند.</footer>
+
+  <script>
+    // ---------- تنظیمات ----------
+    const TOP_FOLDERS = ['week1','week2','week3','week4','week5','week6','week7','week8','week9'];
+    const IMAGE_EXT = ['png','jpg','jpeg','gif','bmp','webp'];
+    const PY_EXT = ['py'];
+    const MEDIA_EXT = ['mp3','mp4','wav'];
+
+    function extOf(name){
+      const m = name.split('.');
+      return m.length>1? m[m.length-1].toLowerCase() : '';
+    }
+
+    // ---------- FALLBACK: ساختار کامل شما (اگر سرور لیست‌دهی نکند) ----------
+    const FALLBACK_STRUCTURE = {
+      "week1": {
+        "000": [
+          "0.py","00.py","000.py","0000.py","00000.py","0001.py","1-.py","1.py","10.py",
+          "2-.py","2.py","3.py","4.py","5.py","6.py","7.py","8-.py","8.py","9.py","function1.JPG"
+        ],
+        "if_walking": [
+          "all.PNG","biking - Copy.PNG","biking.PNG","map.py","running - Copy.PNG","running.PNG",
+          "speed0.py","speed1.py","speed2.py","walking - Copy.PNG","walking.PNG"
+        ],
+        "projects": ["screen1.py","screen2.py"],
+        "sound": ["alivesound.mp3","playsound.txt","sound1.py","soundTK1.py","soundTK2.py","soundTK3.py","soundTK4.py"],
+        "TextColor": [
+          "__pycache__/termcolor2.cpython-312.pyc","colorama1.py","colorama2.py","colorama3.py","temp1.py","tempCodeRunnerFile.py","termcolor1.py","termcolor2.py","termcolor3.py"
+        ],
+        "tk": ["0001.py","sound.py","tempCodeRunnerFile.py","test1.py","tk0.py","tk0001.py","tk0002New.py"],
+        "VariablesandSimpleDataTypes": ["apostrophe.py","comment.py","full_name_2.py","full_name_3.py","full_name.py","hello_world_variables_2.py","hello_world_variables.py","hello_world.py","name_2.py","name.py","tempCodeRunnerFile.py"],
+        "video": ["moon.mp4","moon2.mp4","video1.py"],
+        "files": ["0.JPG","0001.py","0002.py","0003.py","0004.py","0011.JPG","1.py","color.py","color1.py","func-takbir.py","hello.py","helloSound1.py","if0002.py","if0003.py","izeh-.py","izeh1.py","izeh2.py","izehmap.py","pic1.py","s1.JPG","sum1.py"]
+      },
+      "week2": {
+        "algorithm": ["1-20.PNG","16036flowchart-algorithm-manual.pdf","even.PNG","f2c.PNG","gratest.PNG","plus2.PNG","positive.PNG","positive1.PNG","rectangle.PNG","simplest.PNG","student.PNG"],
+        "chapter_02_Introducing_Lists": ["bicycles.py","cars.py","motorcycles.py","motorcycles2.py","tempCodeRunnerFile.py"],
+        "for": ["Capture.PNG","for0.py","for00.py","for000.py","for0000.py","for0001.sb3","for1.py","for2.py","for3.py","for4.py","for5.py","for6if.py","for7.py","for8.py","new-for0001-.py","new-for0001.py","new-for0002.py","new-for0003.py","new-for0004.py","new-for0005.py","new-for0006.py","new-for0007.py","tempCodeRunnerFile.py"],
+        "if": ["if1.py","if2.py","if3.py","if4.py","light_control_1.py","light_control_2.py"],
+        "projects": ["calendar1.py","calendarcmd.py","chronometer4.py","mark2.py","note.txt","projects.docx","tempCodeRunnerFile.py"],
+        "textSound": ["hello_world.mp3","hello.mp3","helloSound2.py","helloSound3.py","helloSound4.py","helloSound5.py","helloSound9.py","output.mp3"],
+        "tk": ["tempCodeRunnerFile.py","tk0001.py","tk0002.py","tk0003.py","tkhello.py"],
+        "files": ["Data1.png","Data2.png","listsNote.txt"]
+      },
+      "week3": {
+        "chapter_03": ["dimensions.py","even_numbers.py","first_numbers.py","foods.py","magicians.py","players.py","square_numbers.py","squares.py"],
+        "demo": {
+          "new_vaght": ["vaghtBexeir1.py","vaghtBexeir2.py","vaghtBexeir3.py","vaghtBexeir4.py","vaghtBexeir5.py"],
+          "newDef": ["0001.py","0002.py","0003.py","0004.py"],
+          "newFor": ["0.ipynb","0001.py","00010.py","0002.py","0003.py","0004.py","0005.py","0006.py","0007.py","0008.py","0009.py"],
+          "newIf": ["if.txt"],
+          "newPic": ["001.py","002.py","003.py","004.py","bargh.jpg","bmi.jpg","cave_couple_cruisin_p_a_ha.gif","caveman_beating_drum_ha.gif","caveman_gerg_lookingb_ha.gif","caveman_gerg_runningc_ha.gif","caveman_gerg_with_ter_a_ha.gif","caveman_in_big_nest_ha.gif","cavewoman_hunting_wit_a_ha.gif","cavewoman_invent_wheel_ha.gif","entzami.jpg","faraja.jpg","ghaza.jpg","part.jpg","sedasima.jpg","tablu.jpg"],
+          "newPrint": ["0001.py","0002.py","0004.py","003.py"],
+          "newWhile": ["0001.py","0002.py","0003.py","0004.py","0005.py","0006.py","0007.py"]
+        },
+        "function": ["ali.py","ali2.py","ali3.py","flashcards.txt","hi.py","tasks.txt","testfunc.py","zarb.py","zarb2.py","zarb3.py"],
+        "projects": ["calc2.py","convert1.py","login2.py"],
+        "TextAnimFor": ["animateText1.py","animateText2.py","animateText3.py","animateText4.py","animateText5.py"],
+        "tk": ["0.txt","0001.py","tempCodeRunnerFile.py","tk0003.py","tk0003cmd.py","tk0005.py"],
+        "turtle": ["000-.py","000.py","001.py","0010.py","0011.py","0012.py","002.py","003.py","004.py","005.py","006.py","007.py","008.py","009.py","010.py"],
+        "while1": ["0001.py","0002.py","0003.py","0004.py","while1.py","while2.py","while3.py","while4.py"],
+        "files": ["0001.py","kg2g.py","txt1.py","txt2.py","txt3.py","Working with Lists.txt"]
+      },
+      "week4": {
+        "chapter_04": ["amusement_park.py","banned_users.py","cars.py","magic_number.py","tempCodeRunnerFile.py","toppings.py","voting.py"],
+        "projects": ["DB Browser (SQLite).lnk","drug3.py","drugSqlite1.py","flashcard2.py","flashcards.txt","medication_reminder.db","readme.txt"],
+        "tk": ["0001.py","tk0006.py"],
+        "files": ["if Statements.txt"]
+      },
+      "week5": {
+        "projects": {
+          "virus1": ["000.py","0000.py","00000.py","000000.py","0000000.py","0001.py","tempCodeRunnerFile.py","virus1.py","virusAnts.py","virusRain.py","virusT.py","wallpapers.py"],
+          "files": ["phone1.py","quiz1.py"]
+        },
+        "tk": ["0001.py","00010.py","00011.py","0006.py","0007.py","0008.py","0009.py"],
+        "files": ["Dictionaries.txt"]
+      },
+      "week6": {
+        "chapter_06": ["cities.py","confirmed_users.py","counting.py","even_or_odd.py","greeter.py","mountain_poll.py","parrot.py","pets.py","rollercoaster.py"],
+        "projects": ["math1.py","math2.py","math3.py","simplecalc.py","simplecalc2.py","tempCodeRunnerFile.py"],
+        "tk": ["0001.py","00012.py","00013.py","00014.py","00015.py","00016.py","00017.py","00018.py","00019.py","00020.py"],
+        "files": ["data.csv","Data1.png","Data2.png","data1.py","pitza.py","User Input and while Loops.txt"]
+      },
+      "week7": {
+        "class": ["car.py","dog.py","electric_car.py"],
+        "files": {
+          ".vscode": ["settings.json"],
+          "exceptions": ["alice.py","alice.txt","division_calculator.py","little_women.txt","moby_dick.txt","word_count.py"],
+          "other": ["file1.py","file2.py","hello_world.txt"],
+          "reading_from_a_file": ["file_reader.py","hello.mp3","hi__how_are_you_.mp3","pi_birthday.py","pi_digits.txt","pi_million_digits.txt","pi_string.py"],
+          "storing_data": ["greet_user.py","number_reader.py","number_writer.py","numbers.json","remember_me.py","username.json"],
+          "writing_to_a_file": ["programming.txt","write_message.py"],
+          "files": ["append1-.py","append1.py","del1.py","file.txt","file0.txt","file2.txt","read1.py","rmovDir1.py","write1.py"]
+        },
+        "projects": {"morse": ["binary1.py","binary2.py","International_Morse_Code.svg.png","morse0.py","morse2.py","morse3.py","morse3FA.py","morseFA.PNG"], "files": ["hamster1.py","toDoList2.py"]},
+        "tk": ["0001.py","00021.py","00022.py","00023.py","00024.py","book1.PNG","button-event1.py","calculator.py","canvas.png","evenWhile.py","faveicon.PNG","image_anim_mouse1.py","image_anim1.py","image-resize.py","image1.py","image2.py","image3.py"],
+        "files": ["c-sharp-oops-concept.png","car.png","ccc.jpg","cccc.jpg","class-object.png","images.png","test.py"]
+      },
+      "week8": {
+        "chapter_08": ["formatted_name.py","greeter.py","person.py","pets.py","pizza.py","printing_models.py","user_profile.py"],
+        "projects": {"camerashot": {"1": ["camerashot1.py"]}, "dist": ["hamster_anim.gif","hamster3.exe"], "keyloger": ["keylogger2.py"], "morse": ["binary1.py","binary2.py","International_Morse_Code.svg.png","morse0.py","morse2.py","morse3.py","morse3FA.py","morseFA.PNG"], "files": ["dice.py","hamster_anim.gif","hamster.JPG","hamster1.py","hamster2.py","hamster3.py","keyloger1.py","keyloger2.py","plan1.py"]},
+        "tk": ["0001.py","clock1.py","color1.py","draw1.py","guess1.py","hello.py","morse1.py","simpleCalc.py","sum.py","temperature.py","toDoList.py","traffic.py"]
+      },
+      "week9": ["02.py","03.py","04.py","05.py","06.py","ich_bin_bahar_.mp3"],
+      "files": ["demo.mp4"]
+    };
+
+    // ---------- Helper: render a static/fallback structure (recursive) ----------
+    function renderDirectoryStatic(structure, container, basePath=''){
+      container.innerHTML = '';
+      function _render(obj, parentEl, pathAcc){
+        const ul = document.createElement('ul'); ul.className='space-y-1';
+        for(const key of Object.keys(obj)){
+          const val = obj[key];
+          const li = document.createElement('li');
+          const folderDiv = document.createElement('div');
+          folderDiv.className='folder-label flex items-center justify-between px-2 py-1 rounded text-sm bg-gray-800';
+          folderDiv.innerHTML = `<div class="flex items-center gap-2"><span class="text-yellow-400">📁</span><strong>${key}</strong></div><span class="opacity-60"></span>`;
+          li.appendChild(folderDiv);
+
+          const contents = document.createElement('div'); contents.className='ml-3 mt-2 hidden';
+
+          if(Array.isArray(val)){
+            const filesUl = document.createElement('ul'); filesUl.className='space-y-1';
+            for(const f of val){
+              const fileLi = document.createElement('li'); fileLi.className='file-item p-1 rounded flex items-center justify-between text-sm';
+              const span = document.createElement('span'); span.textContent = f; span.dataset.path = pathAcc ? `${pathAcc}/${key}/${f}` : `${key}/${f}`; span.dataset.name = f; span.style.cursor='pointer';
+              const e = extOf(f); const ic = document.createElement('span'); ic.textContent = IMAGE_EXT.includes(e)?'🖼️':PY_EXT.includes(e)?'🐍':MEDIA_EXT.includes(e)?'🎧':'📎';
+              const badge = document.createElement('span'); badge.className='badge bg-gray-700'; badge.textContent = e||'';
+              const right = document.createElement('div'); right.className='flex items-center gap-2'; right.appendChild(badge); right.prepend(ic);
+              fileLi.appendChild(span); fileLi.appendChild(right); filesUl.appendChild(fileLi);
+            }
+            contents.appendChild(filesUl);
+          } else if(typeof val === 'object'){
+            // nested folders
+            _render(val, contents, pathAcc ? `${pathAcc}/${key}` : key);
+          }
+
+          li.appendChild(contents);
+          ul.appendChild(li);
+        }
+        parentEl.appendChild(ul);
+      }
+      _render(structure, container, basePath);
+    }
+
+    // ---------- Server-based listing (tries to read directory indexes) ----------
+    async function fetchDirListing(url){
+      const resp = await fetch(url, {cache:'no-store'});
+      if(!resp.ok) throw new Error('HTTP ' + resp.status);
+      const text = await resp.text();
+      const doc = new DOMParser().parseFromString(text, 'text/html');
+      const anchors = Array.from(doc.querySelectorAll('a'))
+        .map(a => a.getAttribute('href'))
+        .filter(h => h && h !== '../' && h !== './');
+      return anchors.map(h => decodeURIComponent(h));
+    }
+
+    async function buildStructureFor(basePath, depth=0, maxDepth=4){
+      if(depth>maxDepth) return {};
+      let items;
+      try{ items = await fetchDirListing(basePath); }
+      catch(err){ throw err; }
+      const result = {};
+      const files = [];
+      for(const name of items){
+        if(name.endsWith('/')){
+          const dirName = name.replace(/\/+$/,'');
+          try{ result[dirName] = await buildStructureFor(basePath + encodeURIComponent(dirName) + '/', depth+1, maxDepth); }
+          catch(e){ result[dirName] = { files: ['__LIST_ERROR__'] }; }
+        } else {
+          files.push(name);
+        }
+      }
+      if(files.length) result['files'] = files;
+      return result;
+    }
+
+    // render normalized server structure
+    function renderServerStructure(structure, container){
+      container.innerHTML = '';
+      const ul = document.createElement('ul'); ul.className='space-y-2';
+      for(const topKey of Object.keys(structure)){
+        const val = structure[topKey];
+        const li = document.createElement('li');
+        const label = document.createElement('div'); label.className='folder-label flex items-center justify-between px-2 py-1 rounded text-sm bg-gray-800';
+        label.innerHTML = `<div class="flex items-center gap-2"><span class="text-yellow-400">📁</span><strong>${topKey}</strong></div><span class="opacity-60"></span>`;
+        li.appendChild(label);
+        const content = document.createElement('div'); content.className='ml-3 mt-2 hidden';
+        // files
+        if(val && val.files && Array.isArray(val.files)){
+          const filesUl = document.createElement('ul'); filesUl.className='space-y-1';
+          for(const f of val.files){
+            const fl = document.createElement('li'); fl.className='file-item p-1 rounded flex items-center justify-between text-sm';
+            const sp = document.createElement('span'); sp.textContent = f; sp.dataset.path = `${topKey}/${f}`; sp.dataset.name = f; sp.style.cursor='pointer';
+            const e = extOf(f); const ic = document.createElement('span'); ic.textContent = IMAGE_EXT.includes(e)?'🖼️':PY_EXT.includes(e)?'🐍':MEDIA_EXT.includes(e)?'🎧':'📎';
+            const b = document.createElement('span'); b.className='badge bg-gray-700'; b.textContent = e||'';
+            const rd = document.createElement('div'); rd.className='flex items-center gap-2'; rd.appendChild(b); rd.prepend(ic);
+            fl.appendChild(sp); fl.appendChild(rd); filesUl.appendChild(fl);
+          }
+          content.appendChild(filesUl);
+        }
+        // nested
+        for(const child of Object.keys(val || {})){
+          if(child === 'files') continue;
+          const ch = val[child];
+          const nestedLabel = document.createElement('div'); nestedLabel.className='folder-label flex items-center justify-between px-2 py-1 rounded text-sm bg-gray-800 mt-2';
+          nestedLabel.innerHTML = `<div class="flex items-center gap-2"><span class="text-yellow-400">📁</span><strong>${child}</strong></div>`;
+          content.appendChild(nestedLabel);
+          if(ch && ch.files){
+            const fu = document.createElement('ul'); fu.className='mt-2 ml-4 space-y-1';
+            for(const cf of ch.files){
+              const lf = document.createElement('li'); lf.className='file-item p-1 rounded flex items-center justify-between text-sm';
+              const spc = document.createElement('span'); spc.textContent = cf; spc.dataset.path = `${topKey}/${child}/${cf}`; spc.dataset.name = cf; spc.style.cursor='pointer';
+              const be = extOf(cf); const ic2 = document.createElement('span'); ic2.textContent = IMAGE_EXT.includes(be)?'🖼️':PY_EXT.includes(be)?'🐍':MEDIA_EXT.includes(be)?'🎧':'📎';
+              const bad = document.createElement('span'); bad.className='badge bg-gray-700'; bad.textContent = be||'';
+              const rd2 = document.createElement('div'); rd2.className='flex items-center gap-2'; rd2.appendChild(bad); rd2.prepend(ic2);
+              lf.appendChild(spc); lf.appendChild(rd2); fu.appendChild(lf);
+            }
+            content.appendChild(fu);
+          }
+        }
+
+        li.appendChild(content); ul.appendChild(li);
+      }
+      container.appendChild(ul);
+    }
+
+    // ---------- UI wiring ----------
+    const treeEl = document.getElementById('tree');
+    const treeStatus = document.getElementById('tree-status');
+    const searchEl = document.getElementById('search');
+    const refreshBtn = document.getElementById('refresh-tree');
+
+    treeEl.addEventListener('click', e=>{
+      const folder = e.target.closest('.folder-label');
+      if(folder){ const next = folder.nextElementSibling; if(next) next.classList.toggle('hidden'); return; }
+      const fileSpan = e.target.closest('[data-path]');
+      if(fileSpan) openFile(fileSpan.dataset.path);
+    });
+
+    searchEl.addEventListener('input', ()=>{
+      const q = searchEl.value.trim().toLowerCase();
+      if(!q){ document.querySelectorAll('#tree .file-item').forEach(li=>li.style.display=''); return; }
+      document.querySelectorAll('#tree .file-item').forEach(li=>{
+        const name = (li.querySelector('span')?.textContent||'').toLowerCase();
+        li.style.display = name.includes(q)?'':'none';
+      });
+    });
+
+    refreshBtn.addEventListener('click', ()=> buildAndRender());
+
+    // ---------- file open / preview / run ----------
+    const codeContent = document.getElementById('code-content');
+    const filePathEl = document.getElementById('file-path');
+    const fileTypeBadge = document.getElementById('file-type-badge');
+    const previewArea = document.getElementById('preview-area');
+    const previewContent = document.getElementById('preview-content');
+    const runBtn = document.getElementById('run-python');
+    const openRaw = document.getElementById('open-raw');
+    const downloadBtn = document.getElementById('download-file');
+    const inputsArea = document.getElementById('python-inputs');
+    const inputsTextarea = document.getElementById('inputs');
+    const consoleEl = document.getElementById('console-text');
+    const outputConsole = document.getElementById('output-console');
+
+    let pyodideReady = false;
+    let pyodide = null;
+    (async ()=>{
+      try{
+        previewArea.textContent = 'در حال بارگذاری Pyodide...';
+        pyodide = await loadPyodide({indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.2/full/'});
+        pyodideReady = true;
+        previewArea.textContent = 'Pyodide آماده است — اکنون می‌توانید فایل‌های پایتون را اجرا کنید.';
+      }catch(err){
+        previewArea.textContent = 'بارگذاری Pyodide با خطا مواجه شد: ' + err.message;
+      }
+    })();
+
+    async function fetchText(path){
+      try{ const resp = await fetch(`./${path}`); if(!resp.ok) throw new Error('HTTP '+resp.status); return await resp.text(); }
+      catch(err){ return `# Error: Could not load ${path}
+# ${err.message}
+# لطفاً مطمئن شوید سرور محلی را اجرا کرده‌اید (مثلاً: python -m http.server)`; }
+    }
+
+    function clearPreview(){ previewContent.innerHTML = ''; }
+
+    async function openFile(path){
+      filePathEl.textContent = path; const name = path.split('/').pop(); const ext = extOf(name);
+      fileTypeBadge.innerHTML = `<span class="badge bg-gray-700">${ext || 'file'}</span>`;
+      openRaw.classList.remove('hidden'); openRaw.onclick = ()=> window.open(`./${encodeURI(path)}`,'_blank');
+      downloadBtn.classList.remove('hidden'); downloadBtn.onclick = ()=> { const a = document.createElement('a'); a.href = `./${encodeURI(path)}`; a.download = name; a.click(); };
+
+      codeContent.textContent = ''; clearPreview(); outputConsole.classList.add('hidden'); inputsArea.classList.add('hidden'); runBtn.classList.add('hidden');
+
+      if(PY_EXT.includes(ext)){
+        const content = await fetchText(path); codeContent.textContent = content; try{ hljs.highlightElement(codeContent); }catch(e){}
+        runBtn.classList.remove('hidden'); inputsArea.classList.remove('hidden'); previewArea.textContent = 'این فایل پایتون است — برای اجرا "اجرا" را بزنید.'; runBtn.onclick = ()=> runPython(path, content);
+      } else if(IMAGE_EXT.includes(ext)){
+        const img = document.createElement('img'); img.src = `./${encodeURI(path)}`; img.alt = name; img.className = 'max-w-full rounded mx-auto'; img.onerror = ()=>{ previewContent.innerHTML = `<div class="text-sm">خطا در بارگذاری تصویر</div>` };
+        previewContent.innerHTML = ''; previewContent.appendChild(img); previewArea.textContent = 'پیش‌نمایش تصویر';
+      } else if(MEDIA_EXT.includes(ext)){
+        if(ext==='mp3' || ext==='wav'){ const audio = document.createElement('audio'); audio.controls = true; audio.src = `./${encodeURI(path)}`; previewContent.innerHTML = ''; previewContent.appendChild(audio); previewArea.textContent = 'پخش صوتی'; }
+        else if(ext==='mp4'){ const v = document.createElement('video'); v.controls = true; v.src = `./${encodeURI(path)}`; v.className='w-full rounded'; previewContent.innerHTML=''; previewContent.appendChild(v); previewArea.textContent='پخش ویدئو'; }
+      } else {
+        const txt = await fetchText(path); codeContent.textContent = txt; try{ hljs.highlightElement(codeContent); }catch(e){} previewArea.textContent = 'نمایش فایل';
+      }
+    }
+
+    async function runPython(path, code){
+      if(!pyodideReady) return alert('Pyodide هنوز آماده نیست'); outputConsole.classList.remove('hidden'); consoleEl.textContent = 'در حال اجرا...';
+      const inputs = inputsTextarea.value.split('').filter(l=>l!=''); let inputIndex = 0;
+      pyodide.globals.set('print', (...args) => { const txt = args.map(a=>{ try{ return String(a);}catch(e){return '[object]';} }).join(' '); consoleEl.textContent += txt + ''; });
+      pyodide.globals.set('input', (prompt='') => { const val = inputs[inputIndex++] ?? ''; consoleEl.textContent += (prompt?prompt:'') + val + ''; return val; });
+      try{ await pyodide.runPythonAsync(code); }
+      catch(err){ consoleEl.textContent += 'خطا:' + (err.message||err.toString()); }
+      finally{ try{ pyodide.runPython('del print'); }catch(e){} try{ pyodide.runPython('del input'); }catch(e){} }
+    }
+
+    // ---------- build and render: try server listing first, then fallback ----------
+    async function buildAndRender(){
+      treeEl.innerHTML = 'در حال اسکن پوشه‌ها...'; treeStatus.textContent = 'در حال اسکن با استفاده از لیست‌نمایی سرور (اگر سرور فعال نباشد از حالت پشتیبان استفاده می‌شود)...';
+      const serverStructure = {};
+      let anySuccess = false;
+      for(const f of TOP_FOLDERS){
+        try{
+          const obj = await buildStructureFor(`./${encodeURIComponent(f)}/`);
+          serverStructure[f] = obj; anySuccess = anySuccess || (Object.keys(obj).length>0);
+        }catch(err){ serverStructure[f] = { files: ['__NO_LISTING__'] }; }
+      }
+      // try root files
+      let rootFiles = [];
+      try{ const rootItems = await fetchDirListing('./'); rootFiles = rootItems.filter(x=> !x.endsWith('/')); if(rootFiles.length) serverStructure['root_files'] = { files: rootFiles }; anySuccess = anySuccess || rootFiles.length>0; }
+      catch(e){ /* ignore */ }
+
+      if(anySuccess){
+        treeStatus.textContent = 'درخت فایل‌ها (از لیست‌نمایی سرور)'; renderServerStructure(serverStructure, treeEl);
+      } else {
+        treeStatus.textContent = 'لیست‌نمایی سرور در دسترس نیست — استفاده از ساختار داخلی (پشتیبان).';
+        renderDirectoryStatic(FALLBACK_STRUCTURE, treeEl);
+      }
+    }
+
+    // initial run
+    buildAndRender().catch(err=>{ treeEl.innerHTML = '<div class="text-sm text-red-300">خطا هنگام ساخت درخت: لطفاً کنسول مرورگر را بررسی کنید.</div>'; console.error(err); renderDirectoryStatic(FALLBACK_STRUCTURE, treeEl); });
+
+  </script>
+</body>
+</html>
