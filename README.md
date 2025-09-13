@@ -6,6 +6,13 @@ This repository includes well-organized practical examples, mini-projects, and i
 
 ---
 
+## Live Demo
+🔗 https://tirotir-ir.github.io/Python-1/
+
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Open-blue?logo=githubpages)](https://tirotir-ir.github.io/Python-1/)
+
+---
+
 ## 📁 Repository Structure
 
 This repository is organized by **weeks**, each representing a progressive learning stage in the course:
