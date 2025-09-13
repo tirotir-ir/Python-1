@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="fa">
+<html lang="en" dir="ltr">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>داشبورد پایتون تیروتیر — Python + Image Viewer (Auto + Fallback)</title>
+  <title>Tirotir Python Dashboard — Python + Image Viewer (Auto + Fallback)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css">
@@ -15,41 +15,42 @@
     .folder-label{cursor:pointer}
     .badge{font-size:.7rem;padding:.12rem .35rem;border-radius:.35rem}
     pre.code-block{max-height:50vh;overflow:auto}
-    /* rtl */
-    body{direction:rtl}
   </style>
 </head>
 <body class="bg-gray-900 text-gray-100 min-h-screen font-sans">
   <header class="bg-gradient-to-r from-purple-700 via-indigo-700 to-sky-700 p-4 shadow">
-    <div class="container mx-auto flex items-center justify-between">
-      <h1 class="text-2xl font-bold">داشبورد دوره‌ها — اجرای پایتون و پیش‌نمایش تصویر</h1>
-      <h3>می‌توانید فایل‌ها را ببینید و دانلود کنید. فایل‌های ساده پایتون قابلیت اجرا در این صفحه را دارند.</h3>
-      <div class="text-sm opacity-90">Pyodide (در مرورگر) — فایل‌ها باید با سرور محلی سرو شوند</div>
+    <div class="container mx-auto flex items-center justify-between gap-4">
+      <h1 class="text-2xl font-bold">Courses Dashboard — Run Python & Preview Images</h1>
+      <h3 class="text-sm sm:text-base">Browse and download files. Simple Python files can run in-page.</h3>
+      <div class="text-xs opacity-90">Pyodide (in-browser) — serve files via a local server</div>
     </div>
   </header>
 
   <main class="container mx-auto p-6 grid grid-cols-12 gap-6">
     <!-- Sidebar: tree -->
-    <aside class="col-span-3 bg-gray-800 rounded p-4 shadow">
+    <aside class="col-span-12 md:col-span-3 bg-gray-800 rounded p-4 shadow">
       <div class="mb-3 flex gap-2">
-        <input id="search" placeholder="جستجو در فایل‌ها..." class="flex-1 p-2 rounded bg-gray-700 text-white" />
-        <button id="refresh-tree" class="bg-indigo-600 px-3 py-1 rounded text-sm hover:bg-indigo-700">بروزرسانی</button>
+        <input id="search" placeholder="Search files…" class="flex-1 p-2 rounded bg-gray-700 text-white" />
+        <button id="refresh-tree" class="bg-indigo-600 px-3 py-1 rounded text-sm hover:bg-indigo-700">Refresh</button>
       </div>
-      <div id="tree-status" class="text-xs opacity-80 mb-2">اگر درخت خالی است: از پوشهٔ والد `index.html` سرور را اجرا کنید (مثلاً: <code>python -m http.server</code>).</div>
-      <div class="tree-scroll" id="tree">در حال بارگذاری درخت فایل‌ها...</div>
+      <div id="tree-status" class="text-xs opacity-80 mb-2">
+        If the tree is empty: run a server from the parent folder of this <code>index.html</code>
+        (e.g., <code>python -m http.server 8080</code>).
+      </div>
+      <div class="tree-scroll" id="tree">Loading file tree…</div>
     </aside>
 
     <!-- Center: code viewer and controls -->
-    <section class="col-span-6 bg-gray-800 rounded p-4 shadow flex flex-col">
-      <div class="flex items-center justify-between mb-3">
+    <section class="col-span-12 md:col-span-6 bg-gray-800 rounded p-4 shadow flex flex-col">
+      <div class="flex items-center justify-between mb-3 gap-3">
         <div>
-          <div id="file-path" class="text-sm opacity-80">هیچ فایلی انتخاب نشده</div>
+          <div id="file-path" class="text-sm opacity-80">No file selected</div>
           <div id="file-type-badge" class="mt-1"></div>
         </div>
         <div class="flex items-center gap-2">
-          <button id="open-raw" class="bg-gray-700 px-3 py-1 rounded text-sm hover:bg-gray-600 hidden">باز کردن در تب جدید</button>
-          <button id="run-python" class="bg-green-600 px-4 py-2 rounded text-sm hover:bg-green-700 hidden">اجرا ▶</button>
-          <button id="download-file" class="bg-indigo-600 px-3 py-1 rounded text-sm hover:bg-indigo-700 hidden">دانلود</button>
+          <button id="open-raw" class="bg-gray-700 px-3 py-1 rounded text-sm hover:bg-gray-600 hidden">Open in New Tab</button>
+          <button id="run-python" class="bg-green-600 px-4 py-2 rounded text-sm hover:bg-green-700 hidden">Run ▶</button>
+          <button id="download-file" class="bg-indigo-600 px-3 py-1 rounded text-sm hover:bg-indigo-700 hidden">Download</button>
         </div>
       </div>
 
@@ -60,29 +61,31 @@
       </div>
 
       <div id="python-inputs" class="mt-3 hidden">
-        <label class="text-sm mb-1 block">ورودی‌ها (هر خط = یک فراخوانی input())</label>
-        <textarea id="inputs" class="w-full bg-gray-700 p-2 rounded text-sm" rows="3" placeholder="مثال:
+        <label class="text-sm mb-1 block">Inputs (each line = one <code>input()</code> call)</label>
+        <textarea id="inputs" class="w-full bg-gray-700 p-2 rounded text-sm" rows="3" placeholder="Example:
 Alice
 3"></textarea>
       </div>
 
       <div id="output-console" class="mt-3 bg-black bg-opacity-60 p-3 rounded text-sm h-40 overflow-auto hidden">
-        <div class="font-medium mb-2">خروجی</div>
+        <div class="font-medium mb-2">Output</div>
         <pre id="console-text" class="whitespace-pre-wrap"></pre>
       </div>
     </section>
 
     <!-- Right: preview (image/video/info) -->
-    <aside class="col-span-3 bg-gray-800 rounded p-4 shadow">
-      <div id="preview-area" class="text-center text-sm opacity-90">فایل تصویر یا مدیا را انتخاب کنید</div>
+    <aside class="col-span-12 md:col-span-3 bg-gray-800 rounded p-4 shadow">
+      <div id="preview-area" class="text-center text-sm opacity-90">Select an image or media file</div>
       <div id="preview-content" class="mt-3"></div>
     </aside>
   </main>
 
-  <footer class="text-center p-4 text-xs opacity-80">راهنما: پوشه‌ها و فایل‌ها باید کنار این index.html قرار داشته باشند و با یک سرور ساده (مثل <code>python -m http.server</code>) اجرا شوند.</footer>
+  <footer class="text-center p-4 text-xs opacity-80">
+    Tip: keep your folders/files next to this <code>index.html</code> and run a simple server (e.g., <code>python -m http.server 8080</code>).
+  </footer>
 
   <script>
-    // ---------- تنظیمات ----------
+    // ---------- Settings ----------
     const TOP_FOLDERS = ['week1','week2','week3','week4','week5','week6','week7','week8','week9'];
     const IMAGE_EXT = ['png','jpg','jpeg','gif','bmp','webp'];
     const PY_EXT = ['py'];
@@ -93,7 +96,7 @@ Alice
       return m.length>1? m[m.length-1].toLowerCase() : '';
     }
 
-    // ---------- FALLBACK: ساختار کامل شما (اگر سرور لیست‌دهی نکند) ----------
+    // ---------- FALLBACK: your full structure (used if server indexing is unavailable) ----------
     const FALLBACK_STRUCTURE = {
       "week1": {
         "000": [
@@ -350,20 +353,25 @@ Alice
     let pyodide = null;
     (async ()=>{
       try{
-        previewArea.textContent = 'در حال بارگذاری Pyodide...';
+        previewArea.textContent = 'Loading Pyodide…';
         pyodide = await loadPyodide({indexURL: 'https://cdn.jsdelivr.net/pyodide/v0.26.2/full/'});
         pyodideReady = true;
-        previewArea.textContent = 'Pyodide آماده است — اکنون می‌توانید فایل‌های پایتون را اجرا کنید.';
+        previewArea.textContent = 'Pyodide is ready — you can run Python files now.';
       }catch(err){
-        previewArea.textContent = 'بارگذاری Pyodide با خطا مواجه شد: ' + err.message;
+        previewArea.textContent = 'Failed to load Pyodide: ' + err.message;
       }
     })();
 
     async function fetchText(path){
-      try{ const resp = await fetch(`./${path}`); if(!resp.ok) throw new Error('HTTP '+resp.status); return await resp.text(); }
-      catch(err){ return `# Error: Could not load ${path}
+      try{
+        const resp = await fetch(`./${path}`);
+        if(!resp.ok) throw new Error('HTTP '+resp.status);
+        return await resp.text();
+      } catch(err){
+        return `# Error: Could not load ${path}
 # ${err.message}
-# لطفاً مطمئن شوید سرور محلی را اجرا کرده‌اید (مثلاً: python -m http.server)`; }
+# Make sure you are serving this folder (e.g., python -m http.server 8080)`;
+      }
     }
 
     function clearPreview(){ previewContent.innerHTML = ''; }
@@ -378,31 +386,51 @@ Alice
 
       if(PY_EXT.includes(ext)){
         const content = await fetchText(path); codeContent.textContent = content; try{ hljs.highlightElement(codeContent); }catch(e){}
-        runBtn.classList.remove('hidden'); inputsArea.classList.remove('hidden'); previewArea.textContent = 'این فایل پایتون است — برای اجرا "اجرا" را بزنید.'; runBtn.onclick = ()=> runPython(path, content);
+        runBtn.classList.remove('hidden'); inputsArea.classList.remove('hidden'); previewArea.textContent = 'Python file — press “Run” to execute.'; runBtn.onclick = ()=> runPython(path, content);
       } else if(IMAGE_EXT.includes(ext)){
-        const img = document.createElement('img'); img.src = `./${encodeURI(path)}`; img.alt = name; img.className = 'max-w-full rounded mx-auto'; img.onerror = ()=>{ previewContent.innerHTML = `<div class="text-sm">خطا در بارگذاری تصویر</div>` };
-        previewContent.innerHTML = ''; previewContent.appendChild(img); previewArea.textContent = 'پیش‌نمایش تصویر';
+        const img = document.createElement('img'); img.src = `./${encodeURI(path)}`; img.alt = name; img.className = 'max-w-full rounded mx-auto'; img.onerror = ()=>{ previewContent.innerHTML = `<div class="text-sm">Image failed to load</div>` };
+        previewContent.innerHTML = ''; previewContent.appendChild(img); previewArea.textContent = 'Image preview';
       } else if(MEDIA_EXT.includes(ext)){
-        if(ext==='mp3' || ext==='wav'){ const audio = document.createElement('audio'); audio.controls = true; audio.src = `./${encodeURI(path)}`; previewContent.innerHTML = ''; previewContent.appendChild(audio); previewArea.textContent = 'پخش صوتی'; }
-        else if(ext==='mp4'){ const v = document.createElement('video'); v.controls = true; v.src = `./${encodeURI(path)}`; v.className='w-full rounded'; previewContent.innerHTML=''; previewContent.appendChild(v); previewArea.textContent='پخش ویدئو'; }
+        if(ext==='mp3' || ext==='wav'){ const audio = document.createElement('audio'); audio.controls = true; audio.src = `./${encodeURI(path)}`; previewContent.innerHTML = ''; previewContent.appendChild(audio); previewArea.textContent = 'Audio playback'; }
+        else if(ext==='mp4'){ const v = document.createElement('video'); v.controls = true; v.src = `./${encodeURI(path)}`; v.className='w-full rounded'; previewContent.innerHTML=''; previewContent.appendChild(v); previewArea.textContent='Video playback'; }
       } else {
-        const txt = await fetchText(path); codeContent.textContent = txt; try{ hljs.highlightElement(codeContent); }catch(e){} previewArea.textContent = 'نمایش فایل';
+        const txt = await fetchText(path); codeContent.textContent = txt; try{ hljs.highlightElement(codeContent); }catch(e){} previewArea.textContent = 'Viewing file';
       }
     }
 
     async function runPython(path, code){
-      if(!pyodideReady) return alert('Pyodide هنوز آماده نیست'); outputConsole.classList.remove('hidden'); consoleEl.textContent = 'در حال اجرا...';
-      const inputs = inputsTextarea.value.split('').filter(l=>l!=''); let inputIndex = 0;
-      pyodide.globals.set('print', (...args) => { const txt = args.map(a=>{ try{ return String(a);}catch(e){return '[object]';} }).join(' '); consoleEl.textContent += txt + ''; });
-      pyodide.globals.set('input', (prompt='') => { const val = inputs[inputIndex++] ?? ''; consoleEl.textContent += (prompt?prompt:'') + val + ''; return val; });
-      try{ await pyodide.runPythonAsync(code); }
-      catch(err){ consoleEl.textContent += 'خطا:' + (err.message||err.toString()); }
-      finally{ try{ pyodide.runPython('del print'); }catch(e){} try{ pyodide.runPython('del input'); }catch(e){} }
+      if(!pyodideReady) return alert('Pyodide is not ready yet.');
+      outputConsole.classList.remove('hidden'); consoleEl.textContent = 'Running…\n';
+      const inputs = inputsTextarea.value
+        .split(/\r?\n/)        // each line = one input()
+        .filter(l => l.length > 0);
+      let inputIndex = 0;
+
+      // capture print and input
+      pyodide.globals.set('print', (...args) => {
+        const txt = args.map(a=>{ try{ return String(a);}catch(e){return '[object]';} }).join(' ');
+        consoleEl.textContent += txt + '\n';
+      });
+      pyodide.globals.set('input', (prompt='') => {
+        const val = inputs[inputIndex++] ?? '';
+        consoleEl.textContent += (prompt ? String(prompt) : '') + val + '\n';
+        return val;
+      });
+
+      try{
+        await pyodide.runPythonAsync(code);
+      } catch(err){
+        consoleEl.textContent += 'Error: ' + (err.message||String(err)) + '\n';
+      } finally{
+        try{ pyodide.runPython('del print'); }catch(e){}
+        try{ pyodide.runPython('del input'); }catch(e){}
+      }
     }
 
     // ---------- build and render: try server listing first, then fallback ----------
     async function buildAndRender(){
-      treeEl.innerHTML = 'در حال اسکن پوشه‌ها...'; treeStatus.textContent = 'در حال اسکن با استفاده از لیست‌نمایی سرور (اگر سرور فعال نباشد از حالت پشتیبان استفاده می‌شود)...';
+      treeEl.innerHTML = 'Scanning folders…';
+      treeStatus.textContent = 'Scanning via server directory listing (falls back to built-in structure if unavailable)…';
       const serverStructure = {};
       let anySuccess = false;
       for(const f of TOP_FOLDERS){
@@ -411,21 +439,30 @@ Alice
           serverStructure[f] = obj; anySuccess = anySuccess || (Object.keys(obj).length>0);
         }catch(err){ serverStructure[f] = { files: ['__NO_LISTING__'] }; }
       }
-      // try root files
+      // root files
       let rootFiles = [];
-      try{ const rootItems = await fetchDirListing('./'); rootFiles = rootItems.filter(x=> !x.endsWith('/')); if(rootFiles.length) serverStructure['root_files'] = { files: rootFiles }; anySuccess = anySuccess || rootFiles.length>0; }
-      catch(e){ /* ignore */ }
+      try{
+        const rootItems = await fetchDirListing('./');
+        rootFiles = rootItems.filter(x=> !x.endsWith('/'));
+        if(rootFiles.length) serverStructure['root_files'] = { files: rootFiles };
+        anySuccess = anySuccess || rootFiles.length>0;
+      } catch(e){ /* ignore */ }
 
       if(anySuccess){
-        treeStatus.textContent = 'درخت فایل‌ها (از لیست‌نمایی سرور)'; renderServerStructure(serverStructure, treeEl);
+        treeStatus.textContent = 'File tree (server listing)';
+        renderServerStructure(serverStructure, treeEl);
       } else {
-        treeStatus.textContent = 'لیست‌نمایی سرور در دسترس نیست — استفاده از ساختار داخلی (پشتیبان).';
+        treeStatus.textContent = 'Server listing unavailable — using built-in fallback structure.';
         renderDirectoryStatic(FALLBACK_STRUCTURE, treeEl);
       }
     }
 
     // initial run
-    buildAndRender().catch(err=>{ treeEl.innerHTML = '<div class="text-sm text-red-300">خطا هنگام ساخت درخت: لطفاً کنسول مرورگر را بررسی کنید.</div>'; console.error(err); renderDirectoryStatic(FALLBACK_STRUCTURE, treeEl); });
+    buildAndRender().catch(err=>{
+      treeEl.innerHTML = '<div class="text-sm text-red-300">Error building tree. See browser console for details.</div>';
+      console.error(err);
+      renderDirectoryStatic(FALLBACK_STRUCTURE, treeEl);
+    });
 
   </script>
 </body>
