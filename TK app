@@ -1,74 +1,70 @@
 import tkinter as tk
+from tkinter import messagebox
+
+# ریشه: فقط یکی!
 root = tk.Tk()
-root.title('worden')
-root.geometry('600x400')
-def x():
-    root = tk.Tk()
-    root.title('login')
-    root.geometry('600x400')
-    nothing_lable = tk.Label(root,text="nothing was found")
-    nothing_lable.pack()
-def y():
-    root = tk.Tk()
-    root.title('lsign up')
-    root.geometry('600x400')
-    nothing_lable = tk.Label(root,text="Error")
-    nothing_lable.pack()
+root.title("worden")
+root.geometry("600x400")
 
-def login():
-    root = tk.Tk()
-    root.title('log in')
-    root.geometry('600x400')
-    Email_lable = tk.Label(root,text="Email")
-    Email_lable.pack()
-    Email_Entry = tk.Entry(root)
-    Email_Entry.pack()
-    password_lable = tk.Label(root,text="password")
-    password_lable.pack()
-    password_Entry = tk.Entry(root)
-    password_Entry.pack()
-    rigester_butten = tk.Button(root,text='rigester',command=x)
-    rigester_butten.pack()
-def signup():
-    root = tk.Tk()
-    root.title('sign up')
-    root.geometry('600x400')
-    name_lable = tk.Label(root,text="name")
-    name_lable.pack()
-    name_Entry = tk.Entry(root)
-    name_Entry.pack()
-    nationality_lable = tk.Label(root,text="nationality")
-    nationality_lable.pack()
-    nationality_Entry = tk.Entry(root)
-    nationality_Entry.pack()
-    Email_lable = tk.Label(root,text="Email")
-    Email_lable.pack()
-    Email_Entry = tk.Entry(root)
-    Email_Entry.pack()
-    password_lable = tk.Label(root,text="password")
-    password_lable.pack()
-    password_Entry = tk.Entry(root)
-    password_Entry.pack()
-    signup_butten = tk.Button(root,text='sign up',command=y)
-    signup_butten.pack()
+# --- کمک‌تابع‌ها ---
+def show_not_found():
+    messagebox.showinfo("Result", "Nothing was found.")
 
-''
-Email_lable = tk.Label(root,text="Email")
-Email_lable.pack()
-Email_Entry = tk.Entry(root)
-Email_Entry.pack()
+def show_error():
+    messagebox.showerror("Error", "An error occurred.")
 
-password_lable = tk.Label(root,text="password")
-password_lable.pack()
-password_Entry = tk.Entry(root)
-password_Entry.pack()
+# --- پنجره‌های فرعی ---
+def open_login_window():
+    win = tk.Toplevel(root)
+    win.title("Log in")
+    win.geometry("400x250")
 
-login_butten = tk.Button(root,text='log in',command=login)
-login_butten.pack()
-signup_butten = tk.Button(root,text='sign up',command=signup)
-signup_butten.pack()
-exit_butten = tk.Button(root,text='exit',command=root.destroy)
-exit_butten.pack()
+    tk.Label(win, text="Email").pack(pady=6)
+    email_entry = tk.Entry(win, width=35)
+    email_entry.pack()
+
+    tk.Label(win, text="Password").pack(pady=6)
+    pwd_entry = tk.Entry(win, width=35, show="*")
+    pwd_entry.pack()
+
+    tk.Button(win, text="Register", command=show_not_found).pack(pady=12)
+
+def open_signup_window():
+    win = tk.Toplevel(root)
+    win.title("Sign up")
+    win.geometry("420x360")
+
+    tk.Label(win, text="Name").pack(pady=6)
+    name_entry = tk.Entry(win, width=35)
+    name_entry.pack()
+
+    tk.Label(win, text="Nationality").pack(pady=6)
+    nationality_entry = tk.Entry(win, width=35)
+    nationality_entry.pack()
+
+    tk.Label(win, text="Email").pack(pady=6)
+    email_entry = tk.Entry(win, width=35)
+    email_entry.pack()
+
+    tk.Label(win, text="Password").pack(pady=6)
+    pwd_entry = tk.Entry(win, width=35, show="*")
+    pwd_entry.pack()
+
+    tk.Button(win, text="Sign up", command=show_error).pack(pady=12)
+
+# --- محتوای پنجرهٔ اصلی ---
+tk.Label(root, text="Email").pack(pady=(20,6))
+main_email = tk.Entry(root, width=40)
+main_email.pack()
+
+tk.Label(root, text="Password").pack(pady=6)
+main_pwd = tk.Entry(root, width=40, show="*")
+main_pwd.pack()
+
+tk.Button(root, text="Log in",  command=open_login_window).pack(pady=10)
+tk.Button(root, text="Sign up", command=open_signup_window).pack(pady=4)
+tk.Button(root, text="Exit",    command=root.destroy).pack(pady=18)
 
 root.mainloop()
+
 #gharibi
